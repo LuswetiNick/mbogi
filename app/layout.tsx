@@ -1,3 +1,5 @@
+import { ClerkProvider } from "@clerk/nextjs"
+import { shadcn } from "@clerk/ui/themes"
 import { Geist_Mono, IBM_Plex_Sans } from "next/font/google"
 
 import { ThemeProvider } from "@/components/theme-provider"
@@ -33,11 +35,20 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>
-          <TooltipProvider>
-            <Toaster>{children}</Toaster>
-          </TooltipProvider>
-        </ThemeProvider>
+        <ClerkProvider
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          signInForceRedirectUrl="/dashboard"
+          signUpForceRedirectUrl="/dashboard"
+          afterSignOutUrl="/"
+          appearance={{ theme: shadcn }}
+        >
+          <ThemeProvider>
+            <TooltipProvider>
+              <Toaster>{children}</Toaster>
+            </TooltipProvider>
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   )
