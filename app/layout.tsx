@@ -1,6 +1,8 @@
 import { Geist_Mono, IBM_Plex_Sans } from "next/font/google"
 
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toast"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import "./globals.css"
 
@@ -31,7 +33,11 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Toaster>{children}</Toaster>
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
