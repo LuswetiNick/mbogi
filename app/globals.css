@@ -25,6 +25,12 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-toast-success: var(--toast-success);
+    --color-toast-success-foreground: var(--toast-success-foreground);
+    --color-toast-success-border: var(--toast-success-border);
+    --color-toast-error: var(--toast-error);
+    --color-toast-error-foreground: var(--toast-error-foreground);
+    --color-toast-error-border: var(--toast-error-border);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -64,6 +70,12 @@
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.577 0.245 27.325);
+    --toast-success: #ecfdf3;
+    --toast-success-foreground: #067647;
+    --toast-success-border: #abefc6;
+    --toast-error: #fef3f2;
+    --toast-error-foreground: #b42318;
+    --toast-error-border: #fecdca;
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
@@ -99,6 +111,12 @@
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
+    --toast-success: #053321;
+    --toast-success-foreground: #75e0a7;
+    --toast-success-border: #085d3a;
+    --toast-error: #55160c;
+    --toast-error-foreground: #fda29b;
+    --toast-error-border: #912018;
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);

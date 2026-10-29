@@ -1,6 +1,7 @@
 import { PlusIcon } from "lucide-react"
 import { connection } from "next/server"
 
+import { BotDialog } from "@/components/bot-dialog"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,10 +32,12 @@ export async function BotsEmptyState() {
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button type="button">
-          <PlusIcon aria-hidden data-icon="inline-start" />
-          Create new bot
-        </Button>
+        <BotDialog initialAvatar={seed}>
+          <Button type="button">
+            <PlusIcon aria-hidden data-icon="inline-start" />
+            Create new bot
+          </Button>
+        </BotDialog>
       </EmptyContent>
     </Empty>
   )
