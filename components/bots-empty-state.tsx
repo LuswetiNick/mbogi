@@ -4,6 +4,7 @@ import { connection } from "next/server"
 import { BotDialog } from "@/components/bot-dialog"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { Button } from "@/components/ui/button"
+import { DialogTrigger } from "@/components/ui/dialog"
 import {
   Empty,
   EmptyContent,
@@ -33,10 +34,10 @@ export async function BotsEmptyState() {
       </EmptyHeader>
       <EmptyContent>
         <BotDialog initialAvatar={seed}>
-          <Button type="button">
+          <DialogTrigger render={<Button type="button" />}>
             <PlusIcon aria-hidden data-icon="inline-start" />
             Create new bot
-          </Button>
+          </DialogTrigger>
         </BotDialog>
       </EmptyContent>
     </Empty>

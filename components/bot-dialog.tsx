@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { LoaderCircleIcon, ShuffleIcon } from "lucide-react"
-import { useId, useState, type ReactElement } from "react"
+import { useId, useState, type ComponentProps, type ReactNode } from "react"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
@@ -17,7 +17,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Field,
@@ -36,11 +35,16 @@ import { botPresets } from "@/lib/bot-presets"
 import { createBotSchema } from "@/lib/db/schema"
 
 type BotDialogProps = {
-  children: ReactElement
+  children: ReactNode
   initialAvatar: string
+  finalFocus?: ComponentProps<typeof DialogContent>["finalFocus"]
 }
 
-export function BotDialog({ children, initialAvatar }: BotDialogProps) {
+export function BotDialog({
+  children,
+  initialAvatar,
+  finalFocus,
+}: BotDialogProps) {
   const id = useId()
   const [open, setOpen] = useState(false)
   const form = useForm<
@@ -127,8 +131,9 @@ export function BotDialog({ children, initialAvatar }: BotDialogProps) {
         setOpen(nextOpen)
       }}
     >
-      <DialogTrigger render={children} />
+      {children}
       <DialogContent
+        finalFocus={finalFocus}
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl"
         showCloseButton={!isSubmitting}
       >

@@ -608,6 +608,10 @@ type NavIcon = ElementType
 export type DashboardShellNavItem = {
   id: string
   label: string
+  /** Custom content in place of an icon, such as an avatar. */
+  leading?: ReactNode
+  description?: string
+  metadata?: ReactNode
   /** A duo-icons or lucide icon, or any component that accepts `className`. */
   icon?: NavIcon
   /** Shows a colored dot instead of an icon, for projects or pipelines. */
@@ -620,6 +624,7 @@ export type DashboardShellNavItem = {
 export type DashboardShellNavSection = {
   id: string
   title?: string
+  emptyMessage?: string
   items: DashboardShellNavItem[]
 }
 
@@ -631,12 +636,15 @@ export type DashboardShellProps = Omit<
   ComponentProps<"div">,
   "title" | "children" | "ref"
 > & {
-  brand: { name: string; description?: string; logo?: ReactNode }
   navigation: DashboardShellNavSection[]
   /** Low-emphasis items pinned under the navigation, such as Invite or Help. */
   secondaryNavigation?: DashboardShellNavItem[]
   /** Pinned to the bottom of the sidebar, for a plan or trial card. */
   sidebarFooter?: ReactNode
+  /** Actions in the sidebar header. */
+  sidebarHeaderActions?: ReactNode
+  /** A search control above the sidebar navigation items. */
+  sidebarSearch?: ReactNode
   activeItemId?: string
   defaultActiveItemId?: string
   onActiveItemChange?: (id: string) => void
@@ -712,10 +720,11 @@ const statusToneClasses: Record<DashboardShellStatusTone, string> = {
 }
 
 export function DashboardShell({
-  brand,
   navigation,
   secondaryNavigation,
   sidebarFooter,
+  sidebarHeaderActions,
+  sidebarSearch,
   activeItemId,
   defaultActiveItemId,
   onActiveItemChange,
@@ -888,7 +897,8 @@ export function DashboardShell({
   const Heading = `h${headingLevel}` as "h1" | "h2" | "h3"
 
   const sidebarProps = {
-    brand,
+    headerActions: sidebarHeaderActions,
+    search: sidebarSearch,
     navigation,
     secondaryNavigation,
     footer: sidebarFooter,
@@ -1086,6 +1096,8 @@ export function DashboardShell({
                   aria-modal="true"
                   aria-label={navigationLabel}
                   onKeyDown={(event) => {
+                    if (!event.currentTarget.contains(event.target as Node))
+                      return
                     if (event.key === "Escape") {
                       event.stopPropagation()
                       closeDrawer()
@@ -1210,7 +1222,8 @@ function HoverHighlightList({
 }
 
 type SidebarContentProps = {
-  brand: DashboardShellProps["brand"]
+  headerActions?: ReactNode
+  search?: ReactNode
   navigation: DashboardShellNavSection[]
   secondaryNavigation?: DashboardShellNavItem[]
   footer?: ReactNode
@@ -1222,7 +1235,8 @@ type SidebarContentProps = {
 }
 
 const SidebarContent = memo(function SidebarContent({
-  brand,
+  headerActions,
+  search,
   navigation,
   secondaryNavigation,
   footer,
@@ -1237,22 +1251,8 @@ const SidebarContent = memo(function SidebarContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-panel) p-3">
-        {brand.logo && (
-          <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden">
-            {brand.logo}
-          </span>
-        )}
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="block truncate text-sm leading-none font-medium tracking-[-0.01em]">
-            {brand.name}
-          </span>
-          {brand.description && (
-            <span className="block truncate text-xs leading-none text-(--obsidian-dashboard-shell-text-subtle)">
-              {brand.description}
-            </span>
-          )}
-        </div>
+      <div className="flex shrink-0 items-center justify-end gap-2 border-b border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-panel) p-3">
+        {headerActions}
         {onClose && (
           <DashboardButton
             ref={closeButtonRef}
@@ -1271,11 +1271,17 @@ const SidebarContent = memo(function SidebarContent({
         aria-label={navigationLabel}
         className="obsidian-dashboard-shell-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       >
+        {search && (
+          <div className="border-b border-(--obsidian-dashboard-shell-border) p-3">
+            {search}
+          </div>
+        )}
         <HoverHighlightList>
           {navigation.map((section, index) => (
             <NavSection
               key={section.id}
               title={section.title}
+              emptyMessage={section.emptyMessage}
               items={section.items}
               activeItemId={activeItemId}
               pillId={pillId}
@@ -1313,6 +1319,7 @@ const SidebarContent = memo(function SidebarContent({
 
 type NavSectionProps = {
   title?: string
+  emptyMessage?: string
   items: DashboardShellNavItem[]
   activeItemId?: string
   pillId: string
@@ -1323,6 +1330,7 @@ type NavSectionProps = {
 
 function NavSection({
   title,
+  emptyMessage,
   items,
   activeItemId,
   pillId,
@@ -1357,6 +1365,11 @@ function NavSection({
           />
         ))}
       </ul>
+      {items.length === 0 && emptyMessage && (
+        <p className="px-2 py-3 text-xs leading-relaxed text-(--obsidian-dashboard-shell-text-subtle)">
+          {emptyMessage}
+        </p>
+      )}
     </div>
   )
 }
@@ -1383,7 +1396,8 @@ function NavItem({ item, isActive, isQuiet, pillId, onSelect }: NavItemProps) {
       if (event.pointerType !== "touch") highlight?.show(event.currentTarget)
     },
     className: cn(
-      "group relative flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-sm leading-none font-medium outline-none select-none",
+      "group relative flex w-full cursor-pointer items-center rounded-lg px-2 text-sm leading-none font-medium outline-none select-none",
+      item.description !== undefined ? "gap-3 py-3" : "h-8 gap-2",
       "transition-[color,scale] duration-150 hover:text-(--obsidian-dashboard-shell-foreground) focus-visible:ring-2 focus-visible:ring-(--obsidian-dashboard-shell-ring) active:scale-[0.98] active:duration-75 data-[active=true]:text-(--obsidian-dashboard-shell-foreground)",
       isQuiet
         ? "text-(--obsidian-dashboard-shell-text-subtle)"
@@ -1401,7 +1415,11 @@ function NavItem({ item, isActive, isQuiet, pillId, onSelect }: NavItemProps) {
           transition={reduceMotion ? { duration: 0 } : PILL_SPRING}
         />
       )}
-      {Icon ? (
+      {item.leading ? (
+        <span aria-hidden className="relative shrink-0">
+          {item.leading}
+        </span>
+      ) : Icon ? (
         <Icon
           aria-hidden
           className="relative size-4 shrink-0 text-(--obsidian-dashboard-shell-icon)"
@@ -1417,8 +1435,20 @@ function NavItem({ item, isActive, isQuiet, pillId, onSelect }: NavItemProps) {
           />
         </span>
       ) : null}
-      <span className="relative min-w-0 flex-1 truncate text-left">
-        {item.label}
+      <span className="relative flex min-w-0 flex-1 flex-col gap-1.5 text-left">
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {item.metadata && (
+            <span className="shrink-0 text-xs font-normal text-(--obsidian-dashboard-shell-text-subtle)">
+              {item.metadata}
+            </span>
+          )}
+        </span>
+        {item.description !== undefined && (
+          <span className="truncate text-xs leading-normal font-normal text-(--obsidian-dashboard-shell-text-subtle)">
+            {item.description}
+          </span>
+        )}
       </span>
       {item.count !== undefined && (
         <span className="relative inline-flex h-4 min-w-6 shrink-0 items-center justify-center rounded-[5px] border-[0.5px] border-(--obsidian-dashboard-shell-border-strong) bg-(--obsidian-dashboard-shell-muted) px-1 text-[11px] leading-none font-normal text-(--obsidian-dashboard-shell-text-muted) tabular-nums">
