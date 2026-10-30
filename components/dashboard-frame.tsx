@@ -1,15 +1,17 @@
 "use client"
 
 import { UserButton } from "@clerk/nextjs"
-import { HomeIcon, SearchIcon } from "lucide-react"
+import { SearchIcon } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState, type ReactNode } from "react"
 
 import {
+  DashboardButton,
   DashboardShell,
   type DashboardShellNavSection,
 } from "@/components/block/dashboard-shell"
+import { BotDialog } from "@/components/bot-dialog"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { SidebarCreateMenu } from "@/components/sidebar-create-menu"
 import {
@@ -21,17 +23,22 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { DialogTrigger } from "@/components/ui/dialog"
 import { InputGroup, InputGroupButton } from "@/components/ui/input-group"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
-
-const secondaryNavigation = [
-  { id: "home", label: "Home", icon: HomeIcon, href: "/" },
-]
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type SidebarChat = {
   id: string
+  botId: string
   name: string
   avatar: string
+  job: string
+  instructions: string | null
   lastMessagePreview: string | null
   lastMessageAt: string
   lastMessageAge: string
@@ -40,13 +47,16 @@ type SidebarChat = {
 export function DashboardFrame({
   children,
   chats,
+  defaultSidebarCollapsed = false,
 }: {
   children: ReactNode
   chats: SidebarChat[]
+  defaultSidebarCollapsed?: boolean
 }) {
   const router = useRouter()
+  const { chatId } = useParams<{ chatId?: string }>()
   const [searchOpen, setSearchOpen] = useState(false)
-  const [activeChatId, setActiveChatId] = useState(chats[0]?.id)
+  const selectedChat = chats.find((chat) => chat.id === chatId)
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -77,7 +87,7 @@ export function DashboardFrame({
       id: chat.id,
       label: chat.name,
       href: `/dashboard/chats/${encodeURIComponent(chat.id)}`,
-      leading: <ChatAvatar seed={chat.avatar} className="size-10" />,
+      leading: <ChatAvatar seed={chat.avatar} className="size-8" />,
       description: chat.lastMessagePreview ?? "No messages yet",
       metadata: (
         <time dateTime={chat.lastMessageAt}>{chat.lastMessageAge}</time>
@@ -88,9 +98,59 @@ export function DashboardFrame({
   return (
     <>
       <DashboardShell
+        defaultSidebarCollapsed={defaultSidebarCollapsed}
         navigation={[chatNavigation]}
-        secondaryNavigation={secondaryNavigation}
+        sidebarFooter={
+          <UserButton
+            showName
+            appearance={{
+              elements: {
+                rootBox: "w-full min-w-0",
+                userButtonTrigger: "w-full min-w-0 justify-start",
+                userButtonBox: {
+                  width: "100%",
+                  minWidth: 0,
+                  flexDirection: "row-reverse",
+                  justifyContent: "flex-end",
+                  gap: "0.5rem",
+                },
+                userButtonOuterIdentifier: "min-w-0 truncate",
+                avatarBox: "size-8 shrink-0",
+              },
+            }}
+          />
+        }
+        sidebarCollapsedFooter={
+          <UserButton appearance={{ elements: { avatarBox: "size-8" } }} />
+        }
         sidebarHeaderActions={<SidebarCreateMenu />}
+        sidebarCollapsedSearch={
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <DashboardButton
+                  variant="ghost"
+                  size="icon"
+                  className="size-10"
+                  aria-label="Search chats"
+                  aria-haspopup="dialog"
+                  aria-expanded={searchOpen}
+                  aria-keyshortcuts="Meta+K Control+K"
+                  onClick={() => setSearchOpen(true)}
+                />
+              }
+            >
+              <SearchIcon aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              Search chats
+              <KbdGroup aria-hidden>
+                <Kbd>⌘ / Ctrl</Kbd>
+                <Kbd>K</Kbd>
+              </KbdGroup>
+            </TooltipContent>
+          </Tooltip>
+        }
         sidebarSearch={
           <InputGroup>
             <InputGroupButton
@@ -115,11 +175,40 @@ export function DashboardFrame({
             </InputGroupButton>
           </InputGroup>
         }
-        activeItemId={activeChatId}
-        onActiveItemChange={setActiveChatId}
+        activeItemId={selectedChat?.id ?? ""}
         defaultSidebarWidth={300}
-        title="Dashboard"
-        headerActions={<UserButton />}
+        title={
+          selectedChat ? (
+            <BotDialog
+              key={selectedChat.id}
+              bot={{
+                id: selectedChat.botId,
+                name: selectedChat.name,
+                avatar: selectedChat.avatar,
+                job: selectedChat.job,
+                instructions: selectedChat.instructions,
+              }}
+            >
+              <DialogTrigger
+                render={
+                  <DashboardButton
+                    variant="ghost"
+                    size="md"
+                    className="h-auto max-w-full min-w-0 gap-2 py-1 text-left focus-visible:ring-inset"
+                    aria-label={`Edit ${selectedChat.name}`}
+                  />
+                }
+              >
+                <span aria-hidden>
+                  <ChatAvatar seed={selectedChat.avatar} className="size-8" />
+                </span>
+                <span className="truncate">{selectedChat.name}</span>
+              </DialogTrigger>
+            </BotDialog>
+          ) : (
+            "Dashboard"
+          )
+        }
         linkComponent={Link}
         className="h-dvh"
       >
@@ -147,7 +236,6 @@ export function DashboardFrame({
                   value={chat.id}
                   keywords={[chat.name, chat.lastMessagePreview ?? ""]}
                   onSelect={() => {
-                    setActiveChatId(chat.id)
                     setSearchOpen(false)
                     router.push(
                       `/dashboard/chats/${encodeURIComponent(chat.id)}`

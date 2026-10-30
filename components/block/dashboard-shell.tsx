@@ -5,7 +5,14 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Check, ChevronDown, Menu, X } from "lucide-react"
+import {
+  Check,
+  ChevronDown,
+  MessageCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+} from "lucide-react"
 import {
   animate,
   AnimatePresence,
@@ -36,6 +43,15 @@ import type {
   Ref,
   RefObject,
 } from "react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  SIDEBAR_COOKIE_MAX_AGE,
+  SIDEBAR_COOKIE_NAME,
+} from "@/lib/sidebar-preferences"
 import { cn } from "@/lib/utils"
 import "./dashboard-shell.css"
 
@@ -62,6 +78,7 @@ const LAYER_SPRING = {
   mass: 0.7,
 } as const
 const RESIZE_STEP = 10
+const COLLAPSED_SIDEBAR_WIDTH = 72
 /** The sidebar docks beside the content from this container width, in rem. Keep in sync with `@2xl/dashboard-shell`. */
 const DOCKED_SIDEBAR_REM = 42
 
@@ -641,10 +658,15 @@ export type DashboardShellProps = Omit<
   secondaryNavigation?: DashboardShellNavItem[]
   /** Pinned to the bottom of the sidebar, for a plan or trial card. */
   sidebarFooter?: ReactNode
+  /** Compact version of the footer shown in the icon rail. */
+  sidebarCollapsedFooter?: ReactNode
   /** Actions in the sidebar header. */
   sidebarHeaderActions?: ReactNode
   /** A search control above the sidebar navigation items. */
   sidebarSearch?: ReactNode
+  /** Icon search control used by the collapsed sidebar. */
+  sidebarCollapsedSearch?: ReactNode
+  defaultSidebarCollapsed?: boolean
   activeItemId?: string
   defaultActiveItemId?: string
   onActiveItemChange?: (id: string) => void
@@ -723,8 +745,11 @@ export function DashboardShell({
   navigation,
   secondaryNavigation,
   sidebarFooter,
+  sidebarCollapsedFooter,
   sidebarHeaderActions,
   sidebarSearch,
+  sidebarCollapsedSearch,
+  defaultSidebarCollapsed = false,
   activeItemId,
   defaultActiveItemId,
   onActiveItemChange,
@@ -785,6 +810,9 @@ export function DashboardShell({
   )
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    defaultSidebarCollapsed
+  )
   const shownTab = useRef(activeTab)
   const isDark = useScopedDark(rootRef, className)
 
@@ -896,12 +924,20 @@ export function DashboardShell({
 
   const Heading = `h${headingLevel}` as "h1" | "h2" | "h3"
 
+  function toggleSidebar() {
+    const nextCollapsed = !isSidebarCollapsed
+    setIsSidebarCollapsed(nextCollapsed)
+    document.cookie = `${SIDEBAR_COOKIE_NAME}=${!nextCollapsed}; Path=/; Max-Age=${SIDEBAR_COOKIE_MAX_AGE}; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`
+  }
+
   const sidebarProps = {
     headerActions: sidebarHeaderActions,
     search: sidebarSearch,
+    collapsedSearch: sidebarCollapsedSearch,
     navigation,
     secondaryNavigation,
     footer: sidebarFooter,
+    collapsedFooter: sidebarCollapsedFooter,
     activeItemId: activeItem,
     navigationLabel,
   }
@@ -920,8 +956,34 @@ export function DashboardShell({
             aria-controls={isDrawerOpen ? drawerId : undefined}
             onClick={() => setIsDrawerOpen(true)}
           >
-            <Menu aria-hidden />
+            <PanelLeftOpen aria-hidden />
           </DashboardButton>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <DashboardButton
+                  variant="ghost"
+                  size="icon"
+                  className="hidden @2xl/dashboard-shell:inline-flex"
+                  aria-label={
+                    isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }
+                  aria-expanded={!isSidebarCollapsed}
+                  aria-controls={sidebarId}
+                  onClick={toggleSidebar}
+                />
+              }
+            >
+              {isSidebarCollapsed ? (
+                <PanelLeftOpen aria-hidden />
+              ) : (
+                <PanelLeftClose aria-hidden />
+              )}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            </TooltipContent>
+          </Tooltip>
           <Heading
             id={titleId}
             className="truncate text-base leading-none font-medium tracking-normal"
@@ -992,38 +1054,50 @@ export function DashboardShell({
           )}
           style={
             {
-              "--obsidian-dashboard-shell-sidebar-width": `${width}px`,
+              "--obsidian-dashboard-shell-sidebar-width": `${isSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : width}px`,
               ...style,
             } as CSSProperties
           }
         >
           <aside
             id={sidebarId}
-            className="relative hidden w-(--obsidian-dashboard-shell-sidebar-width) shrink-0 flex-col border-r border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-sidebar) @2xl/dashboard-shell:flex"
+            data-collapsed={isSidebarCollapsed}
+            className={cn(
+              "relative hidden w-(--obsidian-dashboard-shell-sidebar-width) shrink-0 flex-col border-r border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-sidebar) @2xl/dashboard-shell:flex",
+              !reduceMotion &&
+                dragWidth === null &&
+                "transition-[width] duration-200"
+            )}
           >
-            <SidebarContent {...sidebarProps} onSelect={selectItem} />
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize sidebar"
-              aria-controls={sidebarId}
-              aria-valuemin={minSidebarWidth}
-              aria-valuemax={maxSidebarWidth}
-              aria-valuenow={width}
-              tabIndex={0}
-              onPointerDown={handleResizeStart}
-              onPointerMove={handleResizeMove}
-              onPointerUp={handleResizeEnd}
-              onPointerCancel={handleResizeEnd}
-              onDoubleClick={() => commitWidth(defaultSidebarWidth)}
-              onKeyDown={handleResizeKey}
-              className="group absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize touch-none outline-none select-none"
-            >
-              <span
-                aria-hidden
-                className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors duration-150 group-hover:bg-(--obsidian-dashboard-shell-border-strong) group-focus-visible:w-0.5 group-focus-visible:bg-(--obsidian-dashboard-shell-ring) group-active:bg-(--obsidian-dashboard-shell-ring)"
-              />
-            </div>
+            <SidebarContent
+              {...sidebarProps}
+              collapsed={isSidebarCollapsed}
+              onSelect={selectItem}
+            />
+            {!isSidebarCollapsed && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize sidebar"
+                aria-controls={sidebarId}
+                aria-valuemin={minSidebarWidth}
+                aria-valuemax={maxSidebarWidth}
+                aria-valuenow={width}
+                tabIndex={0}
+                onPointerDown={handleResizeStart}
+                onPointerMove={handleResizeMove}
+                onPointerUp={handleResizeEnd}
+                onPointerCancel={handleResizeEnd}
+                onDoubleClick={() => commitWidth(defaultSidebarWidth)}
+                onKeyDown={handleResizeKey}
+                className="group absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize touch-none outline-none select-none"
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors duration-150 group-hover:bg-(--obsidian-dashboard-shell-border-strong) group-focus-visible:w-0.5 group-focus-visible:bg-(--obsidian-dashboard-shell-ring) group-active:bg-(--obsidian-dashboard-shell-ring)"
+                />
+              </div>
+            )}
           </aside>
 
           <section
@@ -1224,9 +1298,12 @@ function HoverHighlightList({
 type SidebarContentProps = {
   headerActions?: ReactNode
   search?: ReactNode
+  collapsedSearch?: ReactNode
+  collapsed?: boolean
   navigation: DashboardShellNavSection[]
   secondaryNavigation?: DashboardShellNavItem[]
   footer?: ReactNode
+  collapsedFooter?: ReactNode
   activeItemId?: string
   navigationLabel: string
   onSelect: (id: string) => void
@@ -1237,9 +1314,12 @@ type SidebarContentProps = {
 const SidebarContent = memo(function SidebarContent({
   headerActions,
   search,
+  collapsedSearch,
+  collapsed = false,
   navigation,
   secondaryNavigation,
   footer,
+  collapsedFooter,
   activeItemId,
   navigationLabel,
   onSelect,
@@ -1251,7 +1331,12 @@ const SidebarContent = memo(function SidebarContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center justify-end gap-2 border-b border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-panel) p-3">
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-2 border-b border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-panel) p-3",
+          collapsed ? "justify-center" : "justify-end"
+        )}
+      >
         {headerActions}
         {onClose && (
           <DashboardButton
@@ -1272,8 +1357,13 @@ const SidebarContent = memo(function SidebarContent({
         className="obsidian-dashboard-shell-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       >
         {search && (
-          <div className="border-b border-(--obsidian-dashboard-shell-border) p-3">
-            {search}
+          <div
+            className={cn(
+              "border-b border-(--obsidian-dashboard-shell-border) p-3",
+              collapsed && "flex justify-center"
+            )}
+          >
+            {collapsed ? (collapsedSearch ?? search) : search}
           </div>
         )}
         <HoverHighlightList>
@@ -1281,6 +1371,7 @@ const SidebarContent = memo(function SidebarContent({
             <NavSection
               key={section.id}
               title={section.title}
+              collapsed={collapsed}
               emptyMessage={section.emptyMessage}
               items={section.items}
               activeItemId={activeItemId}
@@ -1304,13 +1395,19 @@ const SidebarContent = memo(function SidebarContent({
             pillId={pillId}
             onSelect={onSelect}
             isQuiet
+            collapsed={collapsed}
           />
         </HoverHighlightList>
       )}
 
       {footer && (
-        <div className="shrink-0 border-t border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-panel) p-4">
-          {footer}
+        <div
+          className={cn(
+            "shrink-0 border-t border-(--obsidian-dashboard-shell-border) bg-(--obsidian-dashboard-shell-panel)",
+            collapsed ? "flex justify-center p-3" : "p-4"
+          )}
+        >
+          {collapsed ? (collapsedFooter ?? footer) : footer}
         </div>
       )}
     </div>
@@ -1319,6 +1416,7 @@ const SidebarContent = memo(function SidebarContent({
 
 type NavSectionProps = {
   title?: string
+  collapsed?: boolean
   emptyMessage?: string
   items: DashboardShellNavItem[]
   activeItemId?: string
@@ -1330,6 +1428,7 @@ type NavSectionProps = {
 
 function NavSection({
   title,
+  collapsed = false,
   emptyMessage,
   items,
   activeItemId,
@@ -1345,7 +1444,11 @@ function NavSection({
       {title && (
         <span
           id={titleId}
-          className="block py-1 text-xs leading-none font-medium tracking-[1px] text-(--obsidian-dashboard-shell-text-subtle) uppercase"
+          className={
+            collapsed
+              ? "sr-only"
+              : "block py-1 text-xs leading-none font-medium tracking-[1px] text-(--obsidian-dashboard-shell-text-subtle) uppercase"
+          }
         >
           {title}
         </span>
@@ -1360,16 +1463,35 @@ function NavSection({
             item={item}
             isActive={item.id === activeItemId}
             isQuiet={isQuiet}
+            collapsed={collapsed}
             pillId={pillId}
             onSelect={onSelect}
           />
         ))}
       </ul>
-      {items.length === 0 && emptyMessage && (
-        <p className="px-2 py-3 text-xs leading-relaxed text-(--obsidian-dashboard-shell-text-subtle)">
-          {emptyMessage}
-        </p>
-      )}
+      {items.length === 0 &&
+        emptyMessage &&
+        (collapsed ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span
+                  role="img"
+                  tabIndex={0}
+                  aria-label={emptyMessage}
+                  className="flex h-12 items-center justify-center text-(--obsidian-dashboard-shell-text-subtle)"
+                />
+              }
+            >
+              <MessageCircle aria-hidden className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent side="right">{emptyMessage}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <p className="px-2 py-3 text-xs leading-relaxed text-(--obsidian-dashboard-shell-text-subtle)">
+            {emptyMessage}
+          </p>
+        ))}
     </div>
   )
 }
@@ -1378,11 +1500,19 @@ type NavItemProps = {
   item: DashboardShellNavItem
   isActive: boolean
   isQuiet: boolean
+  collapsed: boolean
   pillId: string
   onSelect: (id: string) => void
 }
 
-function NavItem({ item, isActive, isQuiet, pillId, onSelect }: NavItemProps) {
+function NavItem({
+  item,
+  isActive,
+  isQuiet,
+  collapsed,
+  pillId,
+  onSelect,
+}: NavItemProps) {
   const highlight = useContext(HoverHighlightContext)
   const linkComponent = useContext(ShellLinkContext)
   const reduceMotion = useReducedMotion()
@@ -1391,13 +1521,18 @@ function NavItem({ item, isActive, isQuiet, pillId, onSelect }: NavItemProps) {
   const shared = {
     "data-active": isActive,
     "aria-current": isActive ? ("page" as const) : undefined,
+    "aria-label": collapsed ? item.label : undefined,
     onClick: () => onSelect(item.id),
     onPointerEnter: (event: PointerEvent<HTMLElement>) => {
       if (event.pointerType !== "touch") highlight?.show(event.currentTarget)
     },
     className: cn(
-      "group relative flex w-full cursor-pointer items-center rounded-lg px-2 text-sm leading-none font-medium outline-none select-none",
-      item.description !== undefined ? "gap-3 py-3" : "h-8 gap-2",
+      "group relative flex w-full cursor-pointer items-center rounded-lg text-sm leading-none font-medium outline-none select-none",
+      collapsed
+        ? "h-12 justify-center"
+        : item.description !== undefined
+          ? "gap-2.5 px-2 py-2.5"
+          : "h-8 gap-2 px-2",
       "transition-[color,scale] duration-150 hover:text-(--obsidian-dashboard-shell-foreground) focus-visible:ring-2 focus-visible:ring-(--obsidian-dashboard-shell-ring) active:scale-[0.98] active:duration-75 data-[active=true]:text-(--obsidian-dashboard-shell-foreground)",
       isQuiet
         ? "text-(--obsidian-dashboard-shell-text-subtle)"
@@ -1434,23 +1569,29 @@ function NavItem({ item, isActive, isQuiet, pillId, onSelect }: NavItemProps) {
             style={{ backgroundColor: item.color }}
           />
         </span>
+      ) : collapsed ? (
+        <span aria-hidden className="relative">
+          {item.label.slice(0, 1)}
+        </span>
       ) : null}
-      <span className="relative flex min-w-0 flex-1 flex-col gap-1.5 text-left">
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {item.metadata && (
-            <span className="shrink-0 text-xs font-normal text-(--obsidian-dashboard-shell-text-subtle)">
-              {item.metadata}
+      {!collapsed && (
+        <span className="relative flex min-w-0 flex-1 flex-col gap-1.5 text-left">
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {item.metadata && (
+              <span className="shrink-0 text-xs font-normal text-(--obsidian-dashboard-shell-text-subtle)">
+                {item.metadata}
+              </span>
+            )}
+          </span>
+          {item.description !== undefined && (
+            <span className="truncate text-xs leading-normal font-normal text-(--obsidian-dashboard-shell-text-subtle)">
+              {item.description}
             </span>
           )}
         </span>
-        {item.description !== undefined && (
-          <span className="truncate text-xs leading-normal font-normal text-(--obsidian-dashboard-shell-text-subtle)">
-            {item.description}
-          </span>
-        )}
-      </span>
-      {item.count !== undefined && (
+      )}
+      {!collapsed && item.count !== undefined && (
         <span className="relative inline-flex h-4 min-w-6 shrink-0 items-center justify-center rounded-[5px] border-[0.5px] border-(--obsidian-dashboard-shell-border-strong) bg-(--obsidian-dashboard-shell-muted) px-1 text-[11px] leading-none font-normal text-(--obsidian-dashboard-shell-text-muted) tabular-nums">
           {item.count}
         </span>
@@ -1458,15 +1599,24 @@ function NavItem({ item, isActive, isQuiet, pillId, onSelect }: NavItemProps) {
     </>
   )
 
+  // Keep the same link destinations and click behavior in both sidebar modes.
+  const control = item.href ? (
+    createElement(linkComponent, { href: item.href, ...shared }, content)
+  ) : (
+    <button type="button" {...shared}>
+      {content}
+    </button>
+  )
+
   return (
     <li>
-      {item.href ? (
-        // The link component comes from the app, usually next/link, and keeps its identity between renders.
-        createElement(linkComponent, { href: item.href, ...shared }, content)
+      {collapsed ? (
+        <Tooltip>
+          <TooltipTrigger render={control} />
+          <TooltipContent side="right">{item.label}</TooltipContent>
+        </Tooltip>
       ) : (
-        <button type="button" {...shared}>
-          {content}
-        </button>
+        control
       )}
     </li>
   )

@@ -6,7 +6,7 @@ import { useId, useState, type ComponentProps, type ReactNode } from "react"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
-import { createBot } from "@/actions/bot"
+import { createBot, updateBot } from "@/actions/bot"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,33 +32,40 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { botPresets } from "@/lib/bot-presets"
-import { createBotSchema } from "@/lib/db/schema"
+import { botFormSchema } from "@/lib/db/schema"
 
 type BotDialogProps = {
   children: ReactNode
-  initialAvatar: string
   finalFocus?: ComponentProps<typeof DialogContent>["finalFocus"]
-}
+} & (
+  | {
+      bot: { id: string } & z.input<typeof botFormSchema>
+      initialAvatar?: never
+    }
+  | { bot?: never; initialAvatar: string }
+)
 
 export function BotDialog({
   children,
+  bot,
   initialAvatar,
   finalFocus,
 }: BotDialogProps) {
   const id = useId()
   const [open, setOpen] = useState(false)
+  const defaultValues = {
+    avatar: bot?.avatar ?? initialAvatar,
+    name: bot?.name ?? "",
+    job: bot?.job ?? "",
+    instructions: bot?.instructions ?? "",
+  }
   const form = useForm<
-    z.input<typeof createBotSchema>,
+    z.input<typeof botFormSchema>,
     unknown,
-    z.output<typeof createBotSchema>
+    z.output<typeof botFormSchema>
   >({
-    resolver: zodResolver(createBotSchema),
-    defaultValues: {
-      avatar: initialAvatar,
-      name: "",
-      job: "",
-      instructions: "",
-    },
+    resolver: zodResolver(botFormSchema),
+    defaultValues,
   })
   const [name, job, instructions] = useWatch({
     control: form.control,
@@ -76,17 +83,19 @@ export function BotDialog({
     form.setError("root", { message })
     toast.add({
       type: "error",
-      title: "Could not create bot",
+      title: bot ? "Could not update bot" : "Could not create bot",
       description: message,
       priority: "high",
     })
   }
 
-  async function onSubmit(values: z.output<typeof createBotSchema>) {
+  async function onSubmit(values: z.output<typeof botFormSchema>) {
     form.clearErrors("root")
 
     try {
-      const result = await createBot(values)
+      const result = bot
+        ? await updateBot(bot.id, values)
+        : await createBot(values)
 
       if (!result.success) {
         if (result.fieldErrors) {
@@ -107,25 +116,32 @@ export function BotDialog({
       setOpen(false)
       toast.add({
         type: "success",
-        title: "Bot created",
-        description: `${values.name} was created successfully.`,
+        title: bot ? "Bot updated" : "Bot created",
+        description: bot
+          ? `${values.name} was updated successfully.`
+          : `${values.name} was created successfully.`,
       })
     } catch {
-      showSubmitError("Your bot could not be created. Please try again.")
+      showSubmitError(
+        bot
+          ? "Your bot could not be updated. Please try again."
+          : "Your bot could not be created. Please try again."
+      )
     }
   }
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (isSubmitting) return
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (isSubmitting) {
+          eventDetails.cancel()
+          return
+        }
         if (nextOpen) {
           form.reset({
-            avatar: crypto.randomUUID(),
-            name: "",
-            job: "",
-            instructions: "",
+            ...defaultValues,
+            avatar: bot ? bot.avatar : crypto.randomUUID(),
           })
         }
         setOpen(nextOpen)
@@ -138,9 +154,11 @@ export function BotDialog({
         showCloseButton={!isSubmitting}
       >
         <DialogHeader className="pr-8">
-          <DialogTitle>New bot</DialogTitle>
+          <DialogTitle>{bot ? "Edit bot" : "New bot"}</DialogTitle>
           <DialogDescription>
-            Give it a face, a name, and a job to do.
+            {bot
+              ? "Update its face, name, and the work it should do."
+              : "Give it a face, a name, and a job to do."}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -328,7 +346,13 @@ export function BotDialog({
                   className="motion-safe:animate-spin"
                 />
               )}
-              {isSubmitting ? "Creating bot…" : "Create bot"}
+              {isSubmitting
+                ? bot
+                  ? "Saving changes…"
+                  : "Creating bot…"
+                : bot
+                  ? "Save changes"
+                  : "Create bot"}
             </Button>
           </DialogFooter>
         </form>

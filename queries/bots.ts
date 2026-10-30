@@ -12,7 +12,13 @@ export async function getUserChats() {
   // Use the earliest member for both direct and group chats for now.
   // Check bot ownership too, so a bad membership cannot expose another user's bot.
   const firstBot = db
-    .select({ name: bots.name, avatar: bots.avatar })
+    .select({
+      id: bots.id,
+      name: bots.name,
+      avatar: bots.avatar,
+      job: bots.job,
+      instructions: bots.instructions,
+    })
     .from(chatMembers)
     .innerJoin(bots, eq(bots.id, chatMembers.botId))
     .where(and(eq(chatMembers.chatId, chats.id), eq(bots.userId, userId)))
@@ -23,8 +29,11 @@ export async function getUserChats() {
   return db
     .select({
       id: chats.id,
+      botId: firstBot.id,
       name: firstBot.name,
       avatar: firstBot.avatar,
+      job: firstBot.job,
+      instructions: firstBot.instructions,
       lastMessagePreview: chats.lastMessagePreview,
       lastMessageAt: chats.lastMessageAt,
     })

@@ -17,8 +17,12 @@ function createPool() {
     throw new Error("DATABASE_URL is required to connect to Neon.")
   }
 
+  // Keep certificate and hostname verification explicit across pg versions.
+  const url = new URL(connectionString)
+  url.searchParams.set("sslmode", "verify-full")
+
   const pool = new Pool({
-    connectionString,
+    connectionString: url.toString(),
     max: 10,
     idleTimeoutMillis: 5000,
     connectionTimeoutMillis: 10000,

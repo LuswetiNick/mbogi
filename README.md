@@ -22,6 +22,10 @@ Keep these variables in `.env.local` (already configured locally):
 Drizzle Kit loads `.env*` using Next.js's environment loader. Set the same
 variables in your deployment environment; never expose them with `NEXT_PUBLIC_`.
 
+The application and Drizzle Kit explicitly use `sslmode=verify-full` to verify
+the server certificate and hostname. This preserves the current security behavior
+without the `pg` warning about future changes to `sslmode=require`.
+
 Define and export application tables in `lib/db/schema.ts`. The schema starts
 empty: this setup does not create tables or modify your existing database.
 Neon-managed schemas such as `neon_auth` are not managed by this configuration.

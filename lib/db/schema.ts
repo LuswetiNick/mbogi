@@ -97,6 +97,6 @@ export const insertBotSchema = createInsertSchema(bots, {
 
 // Only these fields can come from the form. Ownership and generated values
 // stay on the server, even if a caller sends extra fields.
-export const createBotSchema = insertBotSchema
+export const botFormSchema = insertBotSchema
   .pick({ name: true, avatar: true, job: true, instructions: true })
   .required({ avatar: true })
